@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIRCUIT SWEEP // Minesweeper</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --void:#060a12;
+    --panel:#0d1220;
+    --panel-2:#111827;
+    --grid-line:#1b2334;
+    --cell:#141b2b;
+    --cell-hover:#1c2740;
+    --cell-revealed:#0c1220;
+    --cyan:#2de2e6;
+    --magenta:#ff2e97;
+    --amber:#ffb627;
+    --danger:#ff4757;
+    --text:#e8f1ff;
+    --muted:#6b7a99;
+    --led-bg:#170606;
+    --led-off:#3a1414;
+    --led-on:#ff3b3b;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(45,226,230,0.07), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(255,46,151,0.06), transparent 45%),
+      var(--void);
+    color:var(--text);
+    font-family:'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .bg-grid{
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(45,226,230,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(45,226,230,0.035) 1px, transparent 1px);
+    background-size:34px 34px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:900px;
+    margin:0 auto;
+    padding:28px 18px 60px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .brand{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .brand .kicker{
+    font-family:'Orbitron', sans-serif;
+    font-size:10px;
+    letter-spacing:4px;
+    color:var(--muted);
+    text-transform:uppercase;
+  }
+
+  .brand h1{
+    margin:0;
+    font-family:'Orbitron', sans-serif;
+    font-weight:900;
+    font-size:26px;
+    letter-spacing:1.5px;
+    background:linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow:0 0 24px rgba(45,226,230,0.25);
+  }
+
+  .header-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+
+  select, .icon-btn{
+    background:var(--panel-2);
+    border:1px solid var(--grid-line);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    font-size:13px;
+    font-weight:600;
+    padding:9px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+  }
+
+  select:hover, .icon-btn:hover{
+    border-color:var(--cyan);
+    box-shadow:0 0 14px rgba(45,226,230,0.18);
+  }
+
+  .icon-btn{
+    width:38px;
+    height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+  }
+
+  .icon-btn:active, select:active{ transform:scale(0.96); }
+
+  /* ---------- Console (mines / face / timer) ---------- */
+  .console{
+    width:100%;
+    background:var(--panel);
+    border:1px solid var(--grid-line);
+    border-radius:14px;
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.02), 0 20px 40px -20px rgba(0,0,0,0.6);
+  }
+
+  .led-display{
+    background:var(--led-bg);
+    border:1px solid #2a0e0e;
+    border-radius:8px;
+    padding:8px 10px;
+    display:flex;
+    gap:2px;
+    box-shadow:inset 0 0 12px rgba(0,0,0,0.6);
+  }
+
+  .led-digit{
+    font-family:'Orbitron', monospace;
+    font-size:26px;
+    font-weight:700;
+    width:20px;
+    text-align:center;
+    color:var(--led-on);
+    text-shadow:0 0 8px var(--led-on), 0 0 18px rgba(255,59,59,0.6);
+    letter-spacing:0;
+  }
+
+  .led-digit.off{
+    color:var(--led-off);
+    text-shadow:none;
+  }
+
+  .led-label{
+    font-family:'Orbitron', sans-serif;
+    font-size:9px;
+    letter-spacing:2px;
+    color:var(--muted);
+    text-align:center;
+    margin-top:4px;
+    text-transform:uppercase;
+  }
+
+  .led-block{ display:flex; flex-direction:column; align-items:center; }
+
+  .face-btn{
+    width:52px;
+    height:52px;
+    border-radius:12px;
+    border:1px solid var(--grid-line);
+    background:var(--panel-2);
+    font-size:26px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:box-shadow .15s ease, transform .1s ease, border-color .15s ease;
+  }
+
+  .face-btn:hover{
+    border-color:var(--amber);
+    box-shadow:0 0 16px rgba(255,182,39,0.25);
+  }
+
+  .face-btn:active{ transform:scale(0.94); }
+
+  /* ---------- Board ---------- */
+  .board-scroll{
+    width:100%;
+    overflow-x:auto;
+    display:flex;
+    justify-content:center;
+    padding-bottom:6px;
+  }
+
+  .board{
+    display:grid;
+    gap:3px;
+    background:var(--grid-line);
+    padding:8px;
+    border-radius:12px;
+    border:1px solid var(--grid-line);
+    box-shadow:0 0 0 1px rgba(255,255,255,0.02), 0 30px 60px -30px rgba(0,0,0,0.7), 0 0 40px -10px rgba(45,226,230,0.06);
+  }
+
+  .cell{
+    width:30px;
+    height:30px;
+    background:var(--cell);
+    border-radius:5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Orbitron', sans-serif;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    user-select:none;
+    transition:background .1s ease, box-shadow .15s ease, transform .05s ease;
+    position:relative;
+  }
+
+  .cell.hidden:hover{
+    background:var(--cell-hover);
+    box-shadow:0 0 10px rgba(45,226,230,0.15);
+  }
+
+  .cell.hidden:active{ transform:scale(0.92); }
+
+  .cell.revealed{
+    background:var(--cell-revealed);
+    cursor:default;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);
+  }
+
+  .cell.mine-hit{
+    background:var(--danger);
+    box-shadow:0 0 18px rgba(255,71,87,0.7);
+  }
+
+  .cell.mine-shown{
+    background:#241018;
+  }
+
+  .cell .mine-icon{ color:#fff; }
+
+  .cell.n1{ color:var(--cyan); text-shadow:0 0 8px rgba(45,226,230,0.5); }
+  .cell.n2{ color:#39ff88; text-shadow:0 0 8px rgba(57,255,136,0.5); }
+  .cell.n3{ color:var(--danger); text-shadow:0 0 8px rgba(255,71,87,0.5); }
+  .cell.n4{ color:#b967ff; text-shadow:0 0 8px rgba(185,103,255,0.5); }
+  .cell.n5{ color:var(--amber); text-shadow:0 0 8px rgba(255,182,39,0.5); }
+  .cell.n6{ color:#00d4ff; text-shadow:0 0 8px rgba(0,212,255,0.5); }
+  .cell.n7{ color:#f0f0f0; }
+  .cell.n8{ color:#8a97b3; }
+
+  @keyframes pop{
+    0%{ transform:scale(0.6); opacity:0.4; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .cell.revealed{ animation:pop .12s ease-out; }
+
+  /* ---------- Status strip ---------- */
+  .status{
+    font-family:'Orbitron', sans-serif;
+    font-size:12px;
+    letter-spacing:1.5px;
+    color:var(--muted);
+    text-transform:uppercase;
+    min-height:18px;
+    text-align:center;
+  }
+
+  .status.win{ color:#39ff88; text-shadow:0 0 10px rgba(57,255,136,0.4); }
+  .status.lose{ color:var(--danger); text-shadow:0 0 10px rgba(255,71,87,0.4); }
+
+  footer.hint{
+    font-size:12.5px;
+    color:var(--muted);
+    text-align:center;
+    max-width:520px;
+    line-height:1.6;
+  }
+  footer.hint b{ color:var(--text); }
+
+  /* ---------- Info Modal ---------- */
+  .modal-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(4,6,12,0.75);
+    backdrop-filter:blur(3px);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .modal-backdrop.open{ display:flex; }
+
+  .modal{
+    background:var(--panel);
+    border:1px solid var(--grid-line);
+    border-radius:16px;
+    max-width:560px;
+    width:100%;
+    max-height:85vh;
+    overflow-y:auto;
+    padding:28px 28px 24px;
+    box-shadow:0 40px 80px -20px rgba(0,0,0,0.8), 0 0 60px -20px rgba(45,226,230,0.15);
+  }
+
+  .modal h2{
+    font-family:'Orbitron', sans-serif;
+    font-size:20px;
+    margin:0 0 4px;
+    background:linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .modal .sub{
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:18px;
+    letter-spacing:0.5px;
+  }
+
+  .modal h3{
+    font-family:'Orbitron', sans-serif;
+    font-size:12px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin:20px 0 8px;
+  }
+
+  .modal p, .modal li{
+    font-size:14px;
+    line-height:1.65;
+    color:#c7d2e6;
+  }
+
+  .modal ul{ margin:0; padding-left:20px; }
+  .modal ul li{ margin-bottom:6px; }
+
+  .legend{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+    margin:10px 0;
+  }
+  .legend .swatch{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    background:var(--panel-2);
+    border:1px solid var(--grid-line);
+    border-radius:8px;
+    padding:8px 4px;
+    font-family:'Orbitron', sans-serif;
+    font-size:15px;
+    font-weight:700;
+  }
+  .legend .swatch span.num-label{
+    font-family:'Inter', sans-serif;
+    font-size:10px;
+    color:var(--muted);
+    font-weight:500;
+  }
+
+  .close-btn{
+    display:block;
+    margin:22px auto 0;
+    background:linear-gradient(90deg, var(--cyan), var(--magenta));
+    border:none;
+    color:#04060a;
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:1px;
+    padding:11px 26px;
+    border-radius:9px;
+    cursor:pointer;
+    transition:transform .1s ease, box-shadow .15s ease;
+  }
+  .close-btn:hover{ box-shadow:0 0 22px rgba(45,226,230,0.4); }
+  .close-btn:active{ transform:scale(0.97); }
+
+  @media (max-width:520px){
+    .cell{ width:26px; height:26px; font-size:12px; }
+    .led-digit{ font-size:20px; width:16px; }
+    .brand h1{ font-size:20px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <span class="kicker">// mine detection protocol</span>
+      <h1>CIRCUIT SWEEP</h1>
+    </div>
+    <div class="header-controls">
+      <select id="difficulty">
+        <option value="beginner">Beginner 9×9</option>
+        <option value="intermediate">Intermediate 16×16</option>
+        <option value="expert">Expert 30×16</option>
+      </select>
+      <button class="icon-btn" id="infoBtn" title="How to play" aria-label="How to play">i</button>
+    </div>
+  </header>
+
+  <div class="console">
+    <div class="led-block">
+      <div class="led-display" id="mineDisplay">
+        <span class="led-digit">0</span><span class="led-digit">1</span><span class="led-digit">0</span>
+      </div>
+      <span class="led-label">Mines</span>
+    </div>
+
+    <button class="face-btn" id="resetBtn" title="Reset" aria-label="Reset game">🙂</button>
+
+    <div class="led-block">
+      <div class="led-display" id="timeDisplay">
+        <span class="led-digit off">0</span><span class="led-digit off">0</span><span class="led-digit off">0</span>
+      </div>
+      <span class="led-label">Time</span>
+    </div>
+  </div>
+
+  <div class="board-scroll">
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="status" id="status">Reveal a cell to begin</div>
+
+  <footer class="hint">
+    <b>Left click a cell to reveal it.</b> Clear every safe cell without hitting a mine to win.
+  </footer>
+
+</div>
+
+<div class="modal-backdrop" id="infoModal">
+  <div class="modal">
+    <h2>How Circuit Sweep Works</h2>
+    <div class="sub">A neon rewiring of the classic 1989 logic puzzle.</div>
+
+    <h3>Objective</h3>
+    <p>The board hides a set number of mines beneath a grid of circuit nodes. Reveal every node that <i>isn't</i> a mine without triggering one. Numbers left behind on cleared nodes tell you how many mines are hiding in the eight neighboring cells.</p>
+
+    <h3>Controls</h3>
+    <ul>
+      <li><b>Left click / tap</b> a hidden cell to reveal it. That's the only control — there's no flagging to manage.</li>
+      <li>Your very first click is always safe — mines are placed only after that click, and never under it or its immediate neighbors.</li>
+    </ul>
+
+    <h3>Reading the grid</h3>
+    <p>Each revealed number is color-coded by value, just like the mine count it represents:</p>
+    <div class="legend">
+      <div class="swatch"><span style="color:#2de2e6; text-shadow:0 0 8px rgba(45,226,230,.6)">1</span><span class="num-label">1 mine</span></div>
+      <div class="swatch"><span style="color:#39ff88; text-shadow:0 0 8px rgba(57,255,136,.6)">2</span><span class="num-label">2 mines</span></div>
+      <div class="swatch"><span style="color:#ff4757; text-shadow:0 0 8px rgba(255,71,87,.6)">3</span><span class="num-label">3 mines</span></div>
+      <div class="swatch"><span style="color:#b967ff; text-shadow:0 0 8px rgba(185,103,255,.6)">4</span><span class="num-label">4 mines</span></div>
+    </div>
+
+    <h3>Winning &amp; losing</h3>
+    <p>Clear every safe cell on the board and the console flashes green — you win. Click a mine and the whole field detonates in red — game over, and every mine is revealed so you can see where they were hiding.</p>
+
+    <h3>Difficulty</h3>
+    <ul>
+      <li><b>Beginner</b> — 9×9 grid, 10 mines.</li>
+      <li><b>Intermediate</b> — 16×16 grid, 40 mines.</li>
+      <li><b>Expert</b> — 30×16 grid, 99 mines.</li>
+    </ul>
+
+    <button class="close-btn" id="closeModal">GOT IT</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const DIFFICULTIES = {
+    beginner:     { rows:9,  cols:9,  mines:10 },
+    intermediate: { rows:16, cols:16, mines:40 },
+    expert:       { rows:16, cols:30, mines:99 }
+  };
+
+  const boardEl      = document.getElementById('board');
+  const mineDisplay   = document.getElementById('mineDisplay');
+  const timeDisplay   = document.getElementById('timeDisplay');
+  const resetBtn      = document.getElementById('resetBtn');
+  const statusEl      = document.getElementById('status');
+  const difficultySel = document.getElementById('difficulty');
+  const infoBtn       = document.getElementById('infoBtn');
+  const infoModal     = document.getElementById('infoModal');
+  const closeModal    = document.getElementById('closeModal');
+
+  let rows, cols, mineCount;
+  let grid = [];            // {mine, revealed, adjacent}
+  let firstClickDone = false;
+  let gameOver = false;
+  let revealedCount = 0;
+  let timer = null;
+  let seconds = 0;
+
+  function setDims(diff){
+    const d = DIFFICULTIES[diff];
+    rows = d.rows; cols = d.cols; mineCount = d.mines;
+  }
+
+  function buildEmptyGrid(){
+    grid = [];
+    for(let r=0;r<rows;r++){
+      const row = [];
+      for(let c=0;c<cols;c++){
+        row.push({ mine:false, revealed:false, adjacent:0 });
+      }
+      grid.push(row);
+    }
+  }
+
+  function forEachNeighbor(r,c,fn){
+    for(let dr=-1; dr<=1; dr++){
+      for(let dc=-1; dc<=1; dc++){
+        if(dr===0 && dc===0) continue;
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0 && nr<rows && nc>=0 && nc<cols) fn(nr,nc);
+      }
+    }
+  }
+
+  function placeMines(safeR, safeC){
+    const forbidden = new Set();
+    forbidden.add(safeR+','+safeC);
+    forEachNeighbor(safeR, safeC, (r,c)=> forbidden.add(r+','+c));
+
+    let placed = 0;
+    while(placed < mineCount){
+      const r = Math.floor(Math.random()*rows);
+      const c = Math.floor(Math.random()*cols);
+      const key = r+','+c;
+      if(forbidden.has(key) || grid[r][c].mine) continue;
+      grid[r][c].mine = true;
+      placed++;
+    }
+    // compute adjacency
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        if(grid[r][c].mine) continue;
+        let count = 0;
+        forEachNeighbor(r,c,(nr,nc)=>{ if(grid[nr][nc].mine) count++; });
+        grid[r][c].adjacent = count;
+      }
+    }
+  }
+
+  function totalSafeCells(){ return rows*cols - mineCount; }
+
+  function renderBoard(){
+    boardEl.innerHTML = '';
+    boardEl.style.gridTemplateColumns = `repeat(${cols}, 30px)`;
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const cellEl = document.createElement('div');
+        cellEl.className = 'cell hidden';
+        cellEl.dataset.r = r;
+        cellEl.dataset.c = c;
+
+        cellEl.addEventListener('click', onCellClick);
+
+        boardEl.appendChild(cellEl);
+      }
+    }
+    if(cols > 20){
+      boardEl.querySelectorAll('.cell').forEach(el=>{
+        el.style.width='24px'; el.style.height='24px'; el.style.fontSize='11px';
+      });
+      boardEl.style.gridTemplateColumns = `repeat(${cols}, 24px)`;
+    }
+  }
+
+  function cellElAt(r,c){
+    return boardEl.children[r*cols + c];
+  }
+
+  function onCellClick(e){
+    if(gameOver) return;
+    const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+    revealCell(r,c);
+  }
+
+  function revealCell(r,c){
+    const cell = grid[r][c];
+    if(cell.revealed) return;
+
+    if(!firstClickDone){
+      firstClickDone = true;
+      placeMines(r,c);
+      startTimer();
+      setStatus('Field is live — good luck', '');
+    }
+
+    if(cell.mine){
+      triggerLoss(r,c);
+      return;
+    }
+
+    floodReveal(r,c);
+    checkWin();
+  }
+
+  function floodReveal(startR, startC){
+    const stack = [[startR,startC]];
+    while(stack.length){
+      const [r,c] = stack.pop();
+      const cell = grid[r][c];
+      if(cell.revealed) continue;
+      cell.revealed = true;
+      revealedCount++;
+      updateCellDom(r,c);
+      if(cell.adjacent === 0 && !cell.mine){
+        forEachNeighbor(r,c,(nr,nc)=>{
+          const n = grid[nr][nc];
+          if(!n.revealed && !n.mine) stack.push([nr,nc]);
+        });
+      }
+    }
+  }
+
+
+  function updateCellDom(r,c){
+    const cell = grid[r][c];
+    const el = cellElAt(r,c);
+    el.className = 'cell';
+    el.innerHTML = '';
+
+    if(cell.revealed){
+      el.classList.add('revealed');
+      if(cell.mine){
+        el.classList.add('mine-shown');
+        el.innerHTML = '<span class="mine-icon">💣</span>';
+      } else if(cell.adjacent > 0){
+        el.classList.add('n'+cell.adjacent);
+        el.textContent = cell.adjacent;
+      }
+    } else {
+      el.classList.add('hidden');
+    }
+  }
+
+  function triggerLoss(hitR, hitC){
+    gameOver = true;
+    stopTimer();
+    setFace('😵');
+    setStatus('DETONATED — field compromised', 'lose');
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const cell = grid[r][c];
+        if(cell.mine) cell.revealed = true;
+        updateCellDom(r,c);
+        if(r===hitR && c===hitC) cellElAt(r,c).classList.add('mine-hit');
+      }
+    }
+  }
+
+  function checkWin(){
+    if(revealedCount === totalSafeCells()){
+      gameOver = true;
+      stopTimer();
+      setFace('😎');
+      setStatus('FIELD CLEARED — all mines neutralized', 'win');
+    }
+  }
+
+  function setFace(f){ resetBtn.textContent = f; }
+  function setStatus(msg, cls){
+    statusEl.textContent = msg;
+    statusEl.className = 'status' + (cls ? ' '+cls : '');
+  }
+
+  function ledDigits(container, value, digitCount, isTime){
+    const str = String(Math.max(Math.min(value, digitCount===3?999:99), value<0?-99:0));
+    let padded;
+    if(value < 0){
+      padded = '-' + String(Math.abs(value)).padStart(digitCount-1,'0');
+    } else {
+      padded = String(value).padStart(digitCount,'0');
+    }
+    container.innerHTML = '';
+    for(const ch of padded){
+      const span = document.createElement('span');
+      span.className = 'led-digit' + (isTime && !firstClickDone ? ' off' : '');
+      span.textContent = ch;
+      container.appendChild(span);
+    }
+  }
+
+  function updateMineDisplay(){
+    ledDigits(mineDisplay, mineCount, 3, false);
+  }
+  function updateTimeDisplay(){
+    ledDigits(timeDisplay, seconds, 3, true);
+  }
+
+  function startTimer(){
+    seconds = 0;
+    updateTimeDisplay();
+    timer = setInterval(()=>{
+      seconds++;
+      if(seconds>999) seconds=999;
+      updateTimeDisplay();
+    },1000);
+  }
+  function stopTimer(){ clearInterval(timer); timer=null; }
+
+  function newGame(){
+    stopTimer();
+    gameOver = false;
+    firstClickDone = false;
+    revealedCount = 0;
+    seconds = 0;
+    setFace('🙂');
+    setStatus('Reveal a cell to begin', '');
+    setDims(difficultySel.value);
+    buildEmptyGrid();
+    renderBoard();
+    updateMineDisplay();
+    updateTimeDisplay();
+  }
+
+  resetBtn.addEventListener('click', newGame);
+  difficultySel.addEventListener('change', newGame);
+
+  infoBtn.addEventListener('click', ()=> infoModal.classList.add('open'));
+  closeModal.addEventListener('click', ()=> infoModal.classList.remove('open'));
+  infoModal.addEventListener('click', (e)=>{ if(e.target===infoModal) infoModal.classList.remove('open'); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') infoModal.classList.remove('open'); });
+
+  newGame();
+})();
+</script>
+</body>
+</html>
