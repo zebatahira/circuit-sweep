@@ -13,7 +13,3 @@ A neon-themed Minesweeper game built with plain HTML, CSS, and JavaScript.
 ## Tech
 
 HTML, CSS, and vanilla JavaScript — no frameworks, no build step. Everything is in one file: `index.html`.
-
-## Run it
-
-Just open `index.html` in a browser.
